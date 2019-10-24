@@ -27,3 +27,11 @@ build:
   project: RmlUi.sln
   parallel: true
   verbosity: minimal
+after_build:
+- cmd: >-
+    IF "%BUILD_SAMPLES%"=="ON" 7z a RmlUi-Debug-win64.zip ./Dependencies/lib/freetype.dll ./Debug/* ./Samples/* -r -x!*.exp -x!*.lib -x!*.ilk -x!*.pdb -x!src/*
+
+    IF "%BUILD_SHARED_LIBS%"=="OFF" 7z a RmlUi-Debug-win64.zip ./Debug/*.lib
+artifacts:
+- path: RmlUi-Debug-win64.zip
+  name: RmlUi-Debug-win64.zip
