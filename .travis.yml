@@ -70,6 +70,21 @@ matrix:
             - libsfml-dev
             - mesa-utils
             - valgrind
+    - dist: trusty
+      language: android
+      env: ANDROID=1 ANDROID_ABI=armeabi-v7a
+      jdk: oraclejdk9
+      android:
+        components:
+          - build-tools-21.0.2
+          - android-18
+          - tools
+          - platform-tools
+          - extra-google-m2repository
+          - extra-android-m2repository
+      addons:
+        apt_packages:
+          - pandoc
 
 install:
   - mkdir -p $HOME/.deps
@@ -83,17 +98,27 @@ install:
       export PATH=${HOME}/.deps/cmake/bin:${PATH}
       echo ${PATH}
     fi
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "linux" ]] && [[ "ANDROID_ABI" != "" ]]; then
+     $ANDROID_HOME/tools/bin
+     echo y | sdkmanager "ndk-bundle"
+     echo y | sdkmanager "ndk;20.1.5948944"
+     export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk-bundle
+     export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
+    fi
   - cmake --version
   - cd "$TRAVIS_BUILD_DIR"
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then cmake -DNO_THIRDPARTY_CONTAINERS=ON -G Xcode .; fi
-  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then cmake -DBUILD_LUA_BINDINGS=ON -DBUILD_SAMPLES=ON -DDISABLE_RTTI_AND_EXCEPTIONS=${DISABLE_RTTI_AND_EXCEPTIONS:-OFF} -DNO_THIRDPARTY_CONTAINERS=${NO_THIRDPARTY_CONTAINERS:-OFF} -DNO_FONT_INTERFACE_DEFAULT=${NO_FONT_INTERFACE_DEFAULT:-OFF} -G Ninja .; fi
+  - if [[ "$TRAVIS_OS_NAME" != "osx" ]] && [[ "ANDROID_ABI" == "" ]]; then cmake -DBUILD_LUA_BINDINGS=ON -DBUILD_SAMPLES=ON -DDISABLE_RTTI_AND_EXCEPTIONS=${DISABLE_RTTI_AND_EXCEPTIONS:-OFF} -DNO_THIRDPARTY_CONTAINERS=${NO_THIRDPARTY_CONTAINERS:-OFF} -DNO_FONT_INTERFACE_DEFAULT=${NO_FONT_INTERFACE_DEFAULT:-OFF} -G Ninja .; fi
+  - if [[ "$TRAVIS_OS_NAME" != "osx" ]] && [[ "ANDROID_ABI" != "1" ]]; then cmake -DCMAKE_SYSTEM_NAME="Android" -DCMAKE_SYSTEM_VERSION=18 -DCMAKE_ANDROID_NDK=${ANDROID_NDK_HOME} -DCMAKE_ANDROID_ARCH_ABI=${ANDROID_ABI} -DCMAKE_ANDROID_NDK_TOOLCHAIN_VERSION=clang -DCMAKE_ANDROID_STL_TYPE=gnustl_static -DBUILD_SHARED_LIBS=OFF  -DBUILD_LUA_BINDINGS=OFF -DBUILD_SAMPLES=OFF -DDISABLE_RTTI_AND_EXCEPTIONS=${DISABLE_RTTI_AND_EXCEPTIONS:-OFF} -DNO_THIRDPARTY_CONTAINERS=${NO_THIRDPARTY_CONTAINERS:-OFF} -DNO_FONT_INTERFACE_DEFAULT=${NO_FONT_INTERFACE_DEFAULT:-OFF} .; fi
 
 before_script:
   - if [[ "$VALGRIND_SAMPLES" == "1" ]] && [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export DISPLAY=:99.0; fi
 
 script:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then xcodebuild -project rmlui.xcodeproj/ -jobs 4 -configuration Release -scheme ALL_BUILD | xcpretty --color; test ${PIPESTATUS[0]} -eq 0; fi
-  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then ninja; fi
+  - if [[ "$TRAVIS_OS_NAME" != "osx" ]] && [[ "ANDROID_ABI" == "" ]]; then ninja; fi
+  - if [[ "$TRAVIS_OS_NAME" != "osx" ]] && [[ "ANDROID_ABI" != "" ]]; then make -j8; fi  
   - if [[ "$VALGRIND_SAMPLES" == "1" ]]; then mkdir build && DESTDIR=build ninja install; fi
   - |
     if [[ "$VALGRIND_SAMPLES" == "1" ]]; then
